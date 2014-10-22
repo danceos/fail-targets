@@ -1,9 +1,3 @@
-#include <stdint.h>
-#include <assert.h>
-#include <stdio.h>
-#include <string.h>
-
-
 volatile int __dummy;
 void __attribute__ ((noinline)) fail_marker();
 void __attribute__ ((noinline)) fail_marker()
