@@ -32,8 +32,27 @@ import-%: %/trace.pb
 	import-trace -t $<  -i mem  -e $(shell dirname $<)/system.elf -v $(shell dirname $<) -b mem
 	import-trace -t $<  -i regs  -e $(shell dirname $<)/system.elf -v $(shell dirname $<) -b regs --flags
 	import-trace -t $<  -i regs  -e $(shell dirname $<)/system.elf -v $(shell dirname $<) -b ip --no-gp --ip
+	import-trace -t $<  -i ElfImporter --objdump objdump -e $(shell dirname $<)/system.elf -v $(shell dirname $<) -b ip 
+	import-trace -t $<  -i ElfImporter --objdump objdump -e $(shell dirname $<)/system.elf -v $(shell dirname $<) -b mem
+	import-trace -t $<  -i ElfImporter --objdump objdump -e $(shell dirname $<)/system.elf -v $(shell dirname $<) -b regs
+
 	prune-trace -v $(shell dirname $<) -b %%
 
+server-%:
+	generic-experiment-server -v $(subst server-,,$@) -b %
+
+client-%: 
+	bochs-experiment-runner.py -e $(subst client-,,$@)/system.elf \
+		-j $(shell getconf _NPROCESSORS_ONLN) \
+		-i $(subst client-,,$@)/system.iso  \
+		-V vgabios.bin -b BIOS-bochs-latest \
+		-f generic-experiment-client -- \
+		-Wf,--state-dir=$(subst client-,,$@)/state \
+		-Wf,--trap -Wf,--timeout=10 \
+		-Wf,--ok-marker=stop_trace \
+		-Wf,--fail-marker=fail_marker \
+		-Wf,--catch-write-textsegment \
+		-Wf,--catch-write-outerspace
 
 # Do never remove implicitly generated stuff
 .SECONDARY:

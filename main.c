@@ -13,14 +13,15 @@ void __attribute__ ((noinline)) stop_trace()
 
 
 int array[] = {1, 1, 2, 3, 5, 8, 13, 21};
+int sum;
 void os_main() {
-	int sum = 0;
+	sum = 20;
 
 	for (int i = 0; i < sizeof(array)/sizeof(*array); i++) {
-		sum = (array[i] * 23) + 1;
+		sum += (array[i] * 23) + 1;
 	}
 
-	if (sum != 1250)
+	if (sum != 1270)
 		fail_marker();
     stop_trace();
 }
