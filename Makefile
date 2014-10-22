@@ -11,9 +11,9 @@ startup.o: startup.s
 
 
 trace-%: %/system.elf %/system.iso
-	python bochs-experiment-runner.py -e $< -i $(shell dirname $<)/system.iso -1 \
-		-f /proj/i4ciao/tools/fail/fail-x86-tracing -- \
-		-V vgabios.bin - b BIOS-bochs-latest \
+	bochs-experiment-runner.py -e $< -i $(shell dirname $<)/system.iso -1 \
+		-V vgabios.bin -b BIOS-bochs-latest \
+		-f fail-x86-tracing -- \
 		-Wf,--start-symbol=os_main \
 		-Wf,--save-symbol=os_main \
 		-Wf,--end-symbol=stop_trace \
