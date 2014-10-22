@@ -36,7 +36,7 @@ import-%: %/trace.pb
 	import-trace -t $<  -i ElfImporter --objdump objdump -e $(shell dirname $<)/system.elf -v $(shell dirname $<) -b mem
 	import-trace -t $<  -i ElfImporter --objdump objdump -e $(shell dirname $<)/system.elf -v $(shell dirname $<) -b regs
 
-	prune-trace -v $(shell dirname $<) -b %%
+	prune-trace -v $(shell dirname $<) -b %% --overwrite
 
 server-%:
 	generic-experiment-server -v $(subst server-,,$@) -b %
