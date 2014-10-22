@@ -32,7 +32,7 @@ import-%: %/trace.pb
 	import-trace -t $<  -i mem  -e $(shell dirname $<)/system.elf -v $(shell dirname $<) -b mem
 	import-trace -t $<  -i regs  -e $(shell dirname $<)/system.elf -v $(shell dirname $<) -b regs --flags
 	import-trace -t $<  -i regs  -e $(shell dirname $<)/system.elf -v $(shell dirname $<) -b ip --no-gp --ip
-	import-trace -v $(shell dirname $<) -b %%
+	prune-trace -v $(shell dirname $<) -b %%
 
 
 # Do never remove implicitly generated stuff
