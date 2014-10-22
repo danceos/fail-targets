@@ -54,5 +54,18 @@ client-%:
 		-Wf,--catch-write-textsegment \
 		-Wf,--catch-write-outerspace
 
+result-%:
+	@echo "select variant, 'all', resulttype, sum(t.time2 - t.time1 + 1)\
+			FROM variant v \
+			JOIN trace t ON v.id = t.variant_id \
+			JOIN fspgroup g ON g.variant_id = t.variant_id AND g.instr2 = t.instr2 AND g.data_address = t.data_address\
+			JOIN result_GenericExperimentMessage r ON r.pilot_id = g.pilot_id  \
+			JOIN fsppilot p ON r.pilot_id = p.id \
+			GROUP BY v.id, resulttype \
+			ORDER BY variant, sum(t.time2-t.time1+1);" | mysql -t
+
+resultbrowser:
+	resultbrowser -s 0.0.0.0
+
 # Do never remove implicitly generated stuff
 .SECONDARY:
