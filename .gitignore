@@ -1,0 +1,6 @@
+*.o
+*/state/*
+*.iso
+*.elf
+*.pb
+main/*
