@@ -95,7 +95,7 @@ client-%:
 ****************************************************************"
 
 result-%:
-	@echo "select variant, 'all', resulttype, sum(t.time2 - t.time1 + 1)\
+	@echo "select variant, benchmark, resulttype, sum(t.time2 - t.time1 + 1)\
 			FROM variant v \
 			JOIN trace t ON v.id = t.variant_id \
 			JOIN fspgroup g ON g.variant_id = t.variant_id AND g.instr2 = t.instr2 AND g.data_address = t.data_address\
