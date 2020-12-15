@@ -1,3 +1,13 @@
+FAIL_DIR     ?= ~/fail
+FAIL_BIN     ?= ${FAIL_DIR}/build/bin
+BOCHS_RUNNER ?= python ${FAIL_DIR}/tools/bochs-experiment-runner/bochs-experiment-runner.py
+FAIL_SERVER  ?= ${FAIL_BIN}/generic-experiment-server
+FAIL_TRACE   ?= ${FAIL_BIN}/fail-generic-tracing
+FAIL_INJECT  ?= ${FAIL_BIN}/fail-generic-experiment
+FAIL_IMPORT  ?= ${FAIL_BIN}/import-trace
+FAIL_PRUNE   ?= ${FAIL_BIN}/prune-trace
+
+
 all: main/system.iso
 
 
@@ -28,12 +38,13 @@ startup.o: startup.s
 
 
 trace-%: %/system.elf %/system.iso
-	bochs-experiment-runner.py -e $< -i $(shell dirname $<)/system.iso -1 \
+	${BOCHS_RUNNER} -e $< -i $(shell dirname $<)/system.iso -1 \
 		-V vgabios.bin -b BIOS-bochs-latest \
-		-f fail-x86-tracing -- \
+		-f ${FAIL_TRACE} -- \
 		-Wf,--start-symbol=os_main \
 		-Wf,--save-symbol=os_main \
 		-Wf,--end-symbol=stop_trace \
+		-Wf,--check-bounds \
 		-Wf,--state-file=$(shell dirname $<)/state \
 		-Wf,--trace-file=$(shell dirname $<)/trace.pb -Wf,--elf-file=$< -q
 	@echo "****************************************************************\n\
@@ -48,14 +59,14 @@ trace-%: %/system.elf %/system.iso
 
 
 import-%: %/trace.pb
-	import-trace -t $<  -i mem  -e $(shell dirname $<)/system.elf -v $(shell dirname $<) -b mem
-	import-trace -t $<  -i regs  -e $(shell dirname $<)/system.elf -v $(shell dirname $<) -b regs --flags
-	import-trace -t $<  -i regs  -e $(shell dirname $<)/system.elf -v $(shell dirname $<) -b ip --no-gp --ip
-	import-trace -t $<  -i ElfImporter --objdump objdump -e $(shell dirname $<)/system.elf -v $(shell dirname $<) -b ip 
-	import-trace -t $<  -i ElfImporter --objdump objdump -e $(shell dirname $<)/system.elf -v $(shell dirname $<) -b mem
-	import-trace -t $<  -i ElfImporter --objdump objdump -e $(shell dirname $<)/system.elf -v $(shell dirname $<) -b regs
+	${FAIL_IMPORT} -t $<  -i mem  -e $(shell dirname $<)/system.elf -v $(shell dirname $<) -b mem
+	${FAIL_IMPORT} -t $<  -i regs  -e $(shell dirname $<)/system.elf -v $(shell dirname $<) -b regs --flags
+	${FAIL_IMPORT} -t $<  -i regs  -e $(shell dirname $<)/system.elf -v $(shell dirname $<) -b ip --no-gp --ip
+	${FAIL_IMPORT} -t $<  -i ElfImporter --objdump objdump -e $(shell dirname $<)/system.elf -v $(shell dirname $<) -b ip 
+	${FAIL_IMPORT} -t $<  -i ElfImporter --objdump objdump -e $(shell dirname $<)/system.elf -v $(shell dirname $<) -b mem
+	${FAIL_IMPORT} -t $<  -i ElfImporter --objdump objdump -e $(shell dirname $<)/system.elf -v $(shell dirname $<) -b regs
 
-	prune-trace -v $(shell dirname $<) -b %% --overwrite
+	${FAIL_PRUNE} -v $(shell dirname $<) -b %% --overwrite
 
 	@echo "****************************************************************\n\
 * The golden run sits now within the MySQL database. If you are interested,\n\
@@ -69,20 +80,21 @@ import-%: %/trace.pb
 ****************************************************************"
 
 server-%:
-	generic-experiment-server -v $(subst server-,,$@) -b %
+	${FAIL_SERVER} -v $(subst server-,,$@) -b %
 
-client-%: 
-	bochs-experiment-runner.py -e $(subst client-,,$@)/system.elf \
+client-%:
+	${BOCHS_RUNNER} -e $(subst client-,,$@)/system.elf \
 		-j $(shell getconf _NPROCESSORS_ONLN) \
 		-i $(subst client-,,$@)/system.iso  \
 		-V vgabios.bin -b BIOS-bochs-latest \
-		-f generic-experiment-client -- \
+		-f ${FAIL_INJECT} -- \
 		-Wf,--state-dir=$(subst client-,,$@)/state \
 		-Wf,--trap -Wf,--timeout=10 \
 		-Wf,--ok-marker=stop_trace \
 		-Wf,--fail-marker=fail_marker \
 		-Wf,--catch-write-textsegment \
-		-Wf,--catch-write-outerspace 2>/dev/null | grep -C 4 'INJECT'
+		-Wf,--catch-outerspace \
+		2>/dev/null | grep -B 2 -A 8 'INJECT'
 
 	@echo "****************************************************************\n\
 * Congratiulations! You've run your first FAIL* injection campaign.\n\
