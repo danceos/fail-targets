@@ -4,7 +4,7 @@ BOCHS_RUNNER ?= python ${FAIL_DIR}/tools/bochs-experiment-runner/bochs-experimen
 FAIL_SERVER  ?= ${FAIL_BIN}/generic-experiment-server
 FAIL_TRACE   ?= ${FAIL_BIN}/fail-generic-tracing
 FAIL_INJECT  ?= ${FAIL_BIN}/fail-generic-experiment
-FAIL_IMPORT  ?= ${FAIL_BIN}/import-trace
+FAIL_IMPORT  ?= ${FAIL_BIN}/import-trace --enable-sanitychecks
 FAIL_PRUNE   ?= ${FAIL_BIN}/prune-trace
 
 
@@ -62,12 +62,11 @@ import-%: %/trace.pb
 	${FAIL_IMPORT} -t $<  -i mem  -e $(shell dirname $<)/system.elf -v $(shell dirname $<) -b mem
 	${FAIL_IMPORT} -t $<  -i regs  -e $(shell dirname $<)/system.elf -v $(shell dirname $<) -b regs --flags
 	${FAIL_IMPORT} -t $<  -i regs  -e $(shell dirname $<)/system.elf -v $(shell dirname $<) -b ip --no-gp --ip
+	${FAIL_IMPORT} -t $<  -i FullTraceImporter -v $(shell dirname $<) -b ip
 	${FAIL_IMPORT} -t $<  -i ElfImporter --objdump objdump -e $(shell dirname $<)/system.elf -v $(shell dirname $<) -b ip 
 	${FAIL_IMPORT} -t $<  -i ElfImporter --objdump objdump -e $(shell dirname $<)/system.elf -v $(shell dirname $<) -b mem
 	${FAIL_IMPORT} -t $<  -i ElfImporter --objdump objdump -e $(shell dirname $<)/system.elf -v $(shell dirname $<) -b regs
-
 	${FAIL_PRUNE} -v $(shell dirname $<) -b %% --overwrite
-
 	@echo "****************************************************************\n\
 * The golden run sits now within the MySQL database. If you are interested,\n\
 * use the 'mysql' command to inspect the curent state of the DB. The tables\n\
@@ -82,6 +81,19 @@ import-%: %/trace.pb
 server-%:
 	${FAIL_SERVER} -v $(subst server-,,$@) -b %
 
+
+import-jump-%: %/trace.pb
+	${FAIL_BIN}/import-trace -t $<  -i RandomJumpImporter \
+		--jump-from $(shell dirname $<).map \
+		--jump-to $(shell dirname $<).map \
+		-e $(shell dirname $<)/system.elf \
+		-v $(shell dirname $<)/jump -b jump
+	${FAIL_PRUNE} -v $(shell dirname $<)/jump -b %% --overwrite
+
+server-jump-%:
+	${FAIL_SERVER} --inject-randomjumps -v $(subst server-jump-,,$@)/jump -b %
+
+
 client-%:
 	${BOCHS_RUNNER} -e $(subst client-,,$@)/system.elf \
 		-j $(shell getconf _NPROCESSORS_ONLN) \
@@ -95,6 +107,19 @@ client-%:
 		-Wf,--catch-write-textsegment \
 		-Wf,--catch-outerspace \
 		2>/dev/null | grep -B 2 -A 8 'INJECT'
+
+inject-%:
+	${BOCHS_RUNNER} -e $(subst inject-,,$@)/system.elf \
+		-j 1 \
+		-i $(subst inject-,,$@)/system.iso  \
+		-V vgabios.bin -b BIOS-bochs-latest \
+		-f ${FAIL_INJECT} -- \
+		-Wf,--state-dir=$(subst inject-,,$@)/state \
+		-Wf,--trap -Wf,--timeout=10 \
+		-Wf,--ok-marker=stop_trace \
+		-Wf,--fail-marker=fail_marker \
+		-Wf,--catch-write-textsegment \
+		-Wf,--catch-outerspace -Wf,--catch-outerspace
 
 	@echo "****************************************************************\n\
 * Congratiulations! You've run your first FAIL* injection campaign.\n\
