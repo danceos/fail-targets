@@ -12,14 +12,14 @@ all: main/system.iso
 
 
 %/system.elf: %/system.o startup.o
-	gcc -Wl,-T linker.ld $^ -m32 -static -nostdlib  -Wl,--build-id=none -o $@
+	${CC} -Wl,-T linker.ld $^ -m32 -static -nostdlib  -Wl,--build-id=none -o $@
 
 %/system.o: %.c 
 	mkdir -p $(shell dirname $@)
-	gcc $< -o $@ -O2 -std=c11 -m32 -c -ffunction-sections
+	${CC} $< -o $@ -O2 -std=c11 -m32 -c -ffunction-sections
 
 startup.o: startup.s
-	gcc startup.s -m32  -c -o startup.o -ffunction-sections
+	${CC} startup.s -m32  -c -o startup.o -ffunction-sections
 
 %/system.iso: %/system.elf
 	rm -rf $(shell dirname $<)/grub
@@ -139,7 +139,7 @@ result-%:
 			JOIN result_GenericExperimentMessage r ON r.pilot_id = g.pilot_id  \
 			JOIN fsppilot p ON r.pilot_id = p.id \
 			GROUP BY v.id, resulttype \
-			ORDER BY variant, sum(t.time2-t.time1+1);" | mysql -t
+			ORDER BY variant, benchmark,sum(t.time2-t.time1+1);" | mysql -t
 
 resultbrowser:
 	resultbrowser -s 0.0.0.0
