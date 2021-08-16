@@ -1,40 +1,68 @@
-FAIL_DIR     ?= ~/fail
-FAIL_BIN     ?= ${FAIL_DIR}/build/bin
-BOCHS_RUNNER ?= python ${FAIL_DIR}/tools/bochs-experiment-runner/bochs-experiment-runner.py
+FAIL_DOWNLOAD_BASE="https://collaborating.tuhh.de/e-exk4/projects/fail/-/jobs/artifacts/feature/sail/download"
+
+ARCH ?= bochs
+
+all: help
+
+BUILD_DIR    := build-${ARCH}
+FAIL_BIN     ?= ${BUILD_DIR}/bin
+BOCHS_RUNNER ?= ${FAIL_BIN}/bochs-experiment-runner
 FAIL_SERVER  ?= ${FAIL_BIN}/generic-experiment-server
 FAIL_TRACE   ?= ${FAIL_BIN}/fail-generic-tracing
 FAIL_INJECT  ?= ${FAIL_BIN}/fail-generic-experiment
 FAIL_IMPORT  ?= ${FAIL_BIN}/import-trace --enable-sanitychecks
 FAIL_PRUNE   ?= ${FAIL_BIN}/prune-trace
 
+EXPERIMENTS  := $(patsubst %.c,%,$(shell echo *.c))
 
-all: main/system.iso
+CFLAGS := -I. -include arch/${ARCH}/lib.c -O2 -std=c11
+
+include arch/${ARCH}.mk
+
+$(foreach element,$(EXPERIMENTS),$(eval $(call arch-make-targets,$(element))))
+
+help:
+	@echo "Small Playground for FAIL* Injections"
+	@echo "-------------------------------------"
+	@echo "Architecture Unspecific Targets:"
+	@echo "	\e[3mdocker\e[0m        Start a Docker container with all dependencies"
+	@echo "	\e[3mdownload\e[0m      Download Precompiled FAIL* client"
+	@echo ""
+	@echo "Current Configuartion"
+	@echo "	ARCH=${ARCH}"
+
+docker:
+	@echo Starting Docker with ARCH=$(ARCH)
+	docker run \
+		-v ${PWD}:/home/fail/fail \
+		-e ARCH=${ARCH} \
+		-w /home/fail/fail \
+	    -it danceos/fail-ci-build
+
+################################################################
+# Download
+download: ${BUILD_DIR}/bin/fail-client
+
+${BUILD_DIR}/bin/fail-client:
+	mkdir -p ${BUILD_DIR}/bin
+	wget ${FAIL_DOWNLOAD_URL} -O ${BUILD_DIR}/bin/fail.zip
+	cd ${BUILD_DIR}/bin/ && unzip fail.zip && mv build/bin/* . && rm -rf build
 
 
-%/system.elf: %/system.o startup.o
-	${CC} -Wl,-T linker.ld $^ -m32 -static -nostdlib  -Wl,--build-id=none -o $@
+clean:
+	@rm -rf build
 
-%/system.o: %.c 
-	mkdir -p $(shell dirname $@)
-	${CC} $< -o $@ -O2 -std=c11 -m32 -c -ffunction-sections
+clean-%:
+	@rm -rf ${BUILD_DIR}/$(patsubst build-%,%,$@)
 
-startup.o: startup.s
-	${CC} startup.s -m32  -c -o startup.o -ffunction-sections
-
-%/system.iso: %/system.elf
-	rm -rf $(shell dirname $<)/grub
-	mkdir -p $(shell dirname $<)/grub/boot/grub
-	cp grub.cfg $(shell dirname $<)/grub/boot/grub
-	cp $< $(shell dirname $<)/grub/boot/system.elf
-	grub-mkrescue -o $@ $(shell dirname $<)/grub
+build-%:
 	@echo "****************************************************************\n\
 * The next step is to trace a golden run. The golden run executes the\n\
-* system-under-test (SUT) within the Bochs emulator. A trace file is \n\
-* produced and saved as main/trace.pb\n\
+* system-under-test (SUT) within the emulator. A trace file is \n\
+* produced and saved as: ${BUILD_DIR}/main/trace.pb\n\
 *\n\
-*    $ make trace-$(shell dirname $<)\n\
+*    $ make trace-$(patsubst build-%,%,$@)\n\
 ****************************************************************"
-
 
 
 trace-%: %/system.elf %/system.iso
