@@ -14,7 +14,7 @@ MAIN() {
 
 
 	if (sum != 1270)
-		MARKER(fail_maker);
+		MARKER(fail_marker);
     else
         MARKER(ok_marker);
 }

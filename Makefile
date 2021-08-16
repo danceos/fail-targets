@@ -6,12 +6,12 @@ all: help
 
 BUILD_DIR    := build-${ARCH}
 FAIL_BIN     ?= ${BUILD_DIR}/bin
-BOCHS_RUNNER ?= ${FAIL_BIN}/bochs-experiment-runner
 FAIL_SERVER  ?= ${FAIL_BIN}/generic-experiment-server
 FAIL_TRACE   ?= ${FAIL_BIN}/fail-generic-tracing
 FAIL_INJECT  ?= ${FAIL_BIN}/fail-generic-experiment
-FAIL_IMPORT  ?= ${FAIL_BIN}/import-trace --enable-sanitychecks
+FAIL_IMPORT  ?= ${FAIL_BIN}/import-trace --enable-sanitychecks 
 FAIL_PRUNE   ?= ${FAIL_BIN}/prune-trace
+BOCHS_RUNNER ?= ${FAIL_BIN}/bochs-experiment-runner
 
 EXPERIMENTS  := $(patsubst %.c,%,$(shell echo *.c))
 
@@ -33,11 +33,10 @@ help:
 
 docker:
 	@echo Starting Docker with ARCH=$(ARCH)
-	docker run \
-		-v ${PWD}:/home/fail/fail \
-		-e ARCH=${ARCH} \
-		-w /home/fail/fail \
-	    -it danceos/fail-ci-build
+	@echo "ARCH=${ARCH}" > .env.${ARCH}
+	docker-compose --env-file .env.${ARCH}  up -d
+	docker-compose --env-file .env.${ARCH}  run --entrypoint bash shell
+
 
 ################################################################
 # Download
@@ -50,10 +49,10 @@ ${BUILD_DIR}/bin/fail-client:
 
 
 clean:
-	@rm -rf build
+	rm -rf ${BUILD_DIR}
 
 clean-%:
-	@rm -rf ${BUILD_DIR}/$(patsubst build-%,%,$@)
+	rm -rf ${BUILD_DIR}/$(patsubst clean-%,%,$@)
 
 build-%:
 	@echo "****************************************************************\n\
@@ -65,36 +64,33 @@ build-%:
 ****************************************************************"
 
 
-trace-%: %/system.elf %/system.iso
-	${BOCHS_RUNNER} -e $< -i $(shell dirname $<)/system.iso -1 \
-		-V vgabios.bin -b BIOS-bochs-latest \
-		-f ${FAIL_TRACE} -- \
-		-Wf,--start-symbol=os_main \
-		-Wf,--save-symbol=os_main \
-		-Wf,--end-symbol=stop_trace \
-		-Wf,--check-bounds \
-		-Wf,--state-file=$(shell dirname $<)/state \
-		-Wf,--trace-file=$(shell dirname $<)/trace.pb -Wf,--elf-file=$< -q
+trace-%:
 	@echo "****************************************************************\n\
 * The trace is now generated. It can be viewed with\n\
 *\n\
-*   $ dump-trace $(shell dirname $<)/trace.pb\n\
+*   $ make dump-$(patsubst trace-%,%,$@)\n\
 *\n\
 * Next, we have to import the trace into the database\n\
 *\n\
-*    $ make import-$(shell dirname $<)\n\
+*    $ make import-$(patsubst trace-%,%,$@)\n\
 ****************************************************************"
 
+dump-%: ${BUILD_DIR}/%/trace.pb
+	${BUILD_DIR}/bin/dump-trace $(shell dirname $<)/trace.pb
 
-import-%: %/trace.pb
-	${FAIL_IMPORT} -t $<  -i mem  -e $(shell dirname $<)/system.elf -v $(shell dirname $<) -b mem
-	${FAIL_IMPORT} -t $<  -i regs  -e $(shell dirname $<)/system.elf -v $(shell dirname $<) -b regs --flags
-	${FAIL_IMPORT} -t $<  -i regs  -e $(shell dirname $<)/system.elf -v $(shell dirname $<) -b ip --no-gp --ip
-	${FAIL_IMPORT} -t $<  -i FullTraceImporter -v $(shell dirname $<) -b ip
-	${FAIL_IMPORT} -t $<  -i ElfImporter --objdump objdump -e $(shell dirname $<)/system.elf -v $(shell dirname $<) -b ip 
-	${FAIL_IMPORT} -t $<  -i ElfImporter --objdump objdump -e $(shell dirname $<)/system.elf -v $(shell dirname $<) -b mem
-	${FAIL_IMPORT} -t $<  -i ElfImporter --objdump objdump -e $(shell dirname $<)/system.elf -v $(shell dirname $<) -b regs
-	${FAIL_PRUNE} -v $(shell dirname $<) -b %% --overwrite
+${HOME}/.my.cnf:
+	@echo "[client]" > $@
+	@echo "user=fail" >> $@
+	@echo "database=fail" >> $@
+	@echo "password=fail" >> $@
+	@echo "host=db" >> $@
+	@echo "port=3306" >> $@
+
+import-%: ${BUILD_DIR}/%/trace.pb ${HOME}/.my.cnf
+	${FAIL_IMPORT} -v ${ARCH}/$(patsubst import-%,%,$@) -b mem  -t $< -e $(shell dirname $<)/system.elf -i mem
+	${FAIL_IMPORT} -v ${ARCH}/$(patsubst import-%,%,$@) -b regs -t $< -e $(shell dirname $<)/system.elf -i regs 
+	${FAIL_IMPORT} -v ${ARCH}/$(patsubst import-%,%,$@) -b ip   -t $< -e $(shell dirname $<)/system.elf -i regs --no-gp --ip
+	${FAIL_PRUNE}  -v ${ARCH}/$(patsubst import-%,%,$@) -b %% --overwrite
 	@echo "****************************************************************\n\
 * The golden run sits now within the MySQL database. If you are interested,\n\
 * use the 'mysql' command to inspect the curent state of the DB. The tables\n\
@@ -102,75 +98,26 @@ import-%: %/trace.pb
 *\n\
 * Next, we have to run the campaign sever and the injection client\n\
 *\n\
-*   $ make server-$(shell dirname $<) &\n\
-*   $ make client-$(shell dirname $<) \n\
+*   $ make server-$(patsubst import-%,%,$@) &\n\
+*   $ make client-$(patsubst import-%,%,$@) \n\n\
+* Afterwards, the results can be viewd with\n\
+*   $ make result-$(subst import-,,$@)\n\
 ****************************************************************"
 
 server-%:
-	${FAIL_SERVER} -v $(subst server-,,$@) -b %
-
-
-import-jump-%: %/trace.pb
-	${FAIL_BIN}/import-trace -t $<  -i RandomJumpImporter \
-		--jump-from $(shell dirname $<).map \
-		--jump-to $(shell dirname $<).map \
-		-e $(shell dirname $<)/system.elf \
-		-v $(shell dirname $<)/jump -b jump
-	${FAIL_PRUNE} -v $(shell dirname $<)/jump -b %% --overwrite
-
-server-jump-%:
-	${FAIL_SERVER} --inject-randomjumps -v $(subst server-jump-,,$@)/jump -b %
-
-
-client-%:
-	${BOCHS_RUNNER} -e $(subst client-,,$@)/system.elf \
-		-j $(shell getconf _NPROCESSORS_ONLN) \
-		-i $(subst client-,,$@)/system.iso  \
-		-V vgabios.bin -b BIOS-bochs-latest \
-		-f ${FAIL_INJECT} -- \
-		-Wf,--state-dir=$(subst client-,,$@)/state \
-		-Wf,--trap -Wf,--timeout=10 \
-		-Wf,--ok-marker=stop_trace \
-		-Wf,--fail-marker=fail_marker \
-		-Wf,--catch-write-textsegment \
-		-Wf,--catch-outerspace \
-		2>/dev/null | grep -B 2 -A 8 'INJECT'
-
-inject-%:
-	${BOCHS_RUNNER} -e $(subst inject-,,$@)/system.elf \
-		-j 1 \
-		-i $(subst inject-,,$@)/system.iso  \
-		-V vgabios.bin -b BIOS-bochs-latest \
-		-f ${FAIL_INJECT} -- \
-		-Wf,--state-dir=$(subst inject-,,$@)/state \
-		-Wf,--trap -Wf,--timeout=10 \
-		-Wf,--ok-marker=stop_trace \
-		-Wf,--fail-marker=fail_marker \
-		-Wf,--catch-write-textsegment \
-		-Wf,--catch-outerspace -Wf,--catch-outerspace
-
-	@echo "****************************************************************\n\
-* Congratiulations! You've run your first FAIL* injection campaign.\n\
-* The results can be viewd with\n\
-*   $ make result-$(subst client-,,$@)\n\
-*\n\
-* For a more detailed information, have a look at the web-based resultbrowser.\n\
-*\n\
-*   $ make resultbrowser\n\
-****************************************************************"
+	${FAIL_SERVER} -v ${ARCH}/$(subst server-,,$@) -b %
 
 result-%:
-	@echo "select variant, benchmark, resulttype, sum(t.time2 - t.time1 + 1)\
+	@echo "select variant, benchmark, resulttype, sum(t.time2 - t.time1 + 1) as faults\
 			FROM variant v \
 			JOIN trace t ON v.id = t.variant_id \
 			JOIN fspgroup g ON g.variant_id = t.variant_id AND g.instr2 = t.instr2 AND g.data_address = t.data_address\
 			JOIN result_GenericExperimentMessage r ON r.pilot_id = g.pilot_id  \
 			JOIN fsppilot p ON r.pilot_id = p.id \
+			WHERE v.variant = \"${ARCH}/$(patsubst result-%,%,$@)\"\
 			GROUP BY v.id, resulttype \
-			ORDER BY variant, benchmark,sum(t.time2-t.time1+1);" | mysql -t
+			ORDER BY variant, benchmark, resulttype;"  |mysql -t
 
-resultbrowser:
-	resultbrowser -s 0.0.0.0
 
 # Do never remove implicitly generated stuff
 .SECONDARY:

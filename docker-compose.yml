@@ -1,0 +1,27 @@
+version: '3'
+services:
+  db:
+     image: mariadb
+     container_name: db
+     restart: always
+     environment:
+        - MYSQL_ROOT_PASSWORD="secret"
+        - MARIADB_DATABASE=fail
+        - MARIADB_USER=fail
+        - MARIADB_PASSWORD=fail
+     volumes:
+        - ./db:/var/lib/mysql
+
+  shell:
+    image: danceos/fail-ci-build
+    stdin_open: true # docker run -i
+    restart: "no"
+    tty: true        # docker run -t
+    entrypoint: ["echo", "Service foo disabled"]
+    links:
+      - db
+    environment:
+      - ARCH=${ARCH}
+    volumes:
+      - .:/home/fail/fail
+
