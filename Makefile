@@ -7,7 +7,7 @@ all: help
 BUILD_DIR    := build-${ARCH}
 FAIL_BIN     ?= ${BUILD_DIR}/bin
 FAIL_SERVER  ?= ${FAIL_BIN}/generic-experiment-server
-FAIL_TRACE   ?= ${FAIL_BIN}/fail-generic-tracing
+FAIL_TRACE   ?= ${FAIL_BIN}/fail-generic-tracing -Wf,--full-trace
 FAIL_INJECT  ?= ${FAIL_BIN}/fail-generic-experiment
 FAIL_IMPORT  ?= ${FAIL_BIN}/import-trace --enable-sanitychecks 
 FAIL_PRUNE   ?= ${FAIL_BIN}/prune-trace
@@ -87,7 +87,8 @@ ${HOME}/.my.cnf:
 	@echo "port=3306" >> $@
 
 import-%: ${BUILD_DIR}/%/trace.pb ${HOME}/.my.cnf
-	${FAIL_IMPORT} -v ${ARCH}/$(patsubst import-%,%,$@) -b mem  -t $< -e $(shell dirname $<)/system.elf -i mem
+	${FAIL_IMPORT} -v ${ARCH}/$(patsubst import-%,%,$@) -b mem  -t $< -e $(shell dirname $<)/system.elf -i mem --memory-type ram
+	${FAIL_IMPORT} -v ${ARCH}/$(patsubst import-%,%,$@) -b regs-trace  -t $< -e $(shell dirname $<)/system.elf -i mem --memory-type register
 	${FAIL_IMPORT} -v ${ARCH}/$(patsubst import-%,%,$@) -b regs -t $< -e $(shell dirname $<)/system.elf -i regs 
 	${FAIL_IMPORT} -v ${ARCH}/$(patsubst import-%,%,$@) -b ip   -t $< -e $(shell dirname $<)/system.elf -i regs --no-gp --ip
 	${FAIL_PRUNE}  -v ${ARCH}/$(patsubst import-%,%,$@) -b %% --overwrite
