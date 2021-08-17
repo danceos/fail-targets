@@ -14,14 +14,16 @@ services:
 
   shell:
     image: danceos/fail-ci-build
+    container_name: shell
     stdin_open: true # docker run -i
     restart: "no"
     tty: true        # docker run -t
-    entrypoint: ["echo", "Service foo disabled"]
+    entrypoint: ["bash", "-c", "while :; do :; done & kill -STOP $$! && wait $$!"]
     links:
       - db
-    environment:
-      - ARCH=${ARCH}
+    working_dir: /home/fail/fail-targets
     volumes:
-      - .:/home/fail/fail
+      - .:/home/fail/fail-targets
+      - ./fail:/home/fail/fail
+
 

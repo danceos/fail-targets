@@ -32,11 +32,12 @@ help:
 	@echo "	ARCH=${ARCH}"
 
 docker:
-	@echo Starting Docker with ARCH=$(ARCH)
-	@echo "ARCH=${ARCH}" > .env.${ARCH}
-	docker-compose --env-file .env.${ARCH}  up -d
-	docker-compose --env-file .env.${ARCH}  run --entrypoint bash shell
+	@echo Starting Docker
+	docker-compose up -d
+	@make shell
 
+shell:
+	docker-compose exec -e debian_chroot=${ARCH} -e ARCH=${ARCH} shell bash
 
 ################################################################
 # Download
