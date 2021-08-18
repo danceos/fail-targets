@@ -69,6 +69,14 @@ inject-%:
 	-Wf,--catch-write-textsegment \
 	-Wf,--catch-outerspace
 
+import-arch-%: ${BUILD_DIR}/%/trace.pb ${HOME}/.my.cnf
+	${FAIL_IMPORT} -v ${ARCH}/$(patsubst import-arch-%,%,$@) -b mem  -t $< -e $(shell dirname $<)/system.elf -i mem --memory-type ram
+	${FAIL_IMPORT} -v ${ARCH}/$(patsubst import-arch-%,%,$@) -b regs-trace  -t $< -e $(shell dirname $<)/system.elf -i mem --memory-type register
+	${FAIL_IMPORT} -v ${ARCH}/$(patsubst import-arch-%,%,$@) -b regs -t $< -e $(shell dirname $<)/system.elf -i regs 
+	${FAIL_IMPORT} -v ${ARCH}/$(patsubst import-arch-%,%,$@) -b ip   -t $< -e $(shell dirname $<)/system.elf -i regs --no-gp --ip
+	${FAIL_PRUNE}  -v ${ARCH}/$(patsubst import-arch-%,%,$@) -b %% --overwrite
+
+
 define arch-make-targets
 
 build-$1: ${BUILD_DIR}/$1/system.iso

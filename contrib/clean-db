@@ -1,0 +1,16 @@
+#!/bin/bash
+
+variant=$1;
+
+variant_ids=`echo "select id from variant where variant like '"${variant}"';" | mysql -N `
+variant_ids=`echo ${variant_ids} | tr " " ","`
+
+echo Delete variants $variant_ids
+
+echo "delete from result_GenericExperimentMessage where pilot_id in (select id from fsppilot where variant_id in (${variant_ids}));" | mysql
+echo "delete from fspgroup where variant_id in (${variant_ids});" | mysql
+echo "delete from fsppilot where variant_id in (${variant_ids});" | mysql
+echo "delete from trace where variant_id in (${variant_ids});" | mysql
+
+
+

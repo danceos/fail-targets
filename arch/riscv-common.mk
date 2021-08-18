@@ -17,6 +17,7 @@ ${BUILD_DIR}/%/system.elf:  ${BUILD_DIR}/startup.o ${BUILD_DIR}/%/system.o
 
 ${BUILD_DIR}/%/trace.pb: ${BUILD_DIR}/%/system.elf
 	${FAIL_TRACE} \
+	-Wf,--full-trace  \
 	-Wf,--elf-file      -Wf,$<             \
 	-Wf,--start-symbol  -Wf,start_trace 	\
 	-Wf,--end-symbol    -Wf,stop_trace  	\
@@ -26,7 +27,7 @@ ${BUILD_DIR}/%/trace.pb: ${BUILD_DIR}/%/system.elf
 	-V $<
 
 client-%:
-	${BOCHS_RUNNER} --mode sail                     \
+	${BOCHS_RUNNER} --mode riscv                    \
 	-f ${FAIL_INJECT}                               \
 	-e ${BUILD_DIR}/$(subst client-,,$@)/system.elf \
 	-j $(shell getconf _NPROCESSORS_ONLN) \
@@ -41,7 +42,7 @@ client-%:
 	-V 2>/dev/null | grep -B 2 -A 8 'INJECT'
 
 inject-%:
-	${BOCHS_RUNNER} --mode sail  -1  -j 1           \
+	${BOCHS_RUNNER} --mode riscv  -1  -j 1           \
 	-f ${FAIL_INJECT}                               \
 	-e ${BUILD_DIR}/$(subst inject-,,$@)/system.elf \
 	-- \
@@ -54,6 +55,12 @@ inject-%:
 	-Wf,--catch-outerspace -V
 
 
+import-arch-%: ${BUILD_DIR}/%/trace.pb ${HOME}/.my.cnf
+	${FAIL_IMPORT} -v ${ARCH}/$(patsubst import-arch-%,%,$@) -b mem  -t $< -e $(shell dirname $<)/system.elf -i mem --memory-type ram
+	${FAIL_IMPORT} -v ${ARCH}/$(patsubst import-arch-%,%,$@) -b regs-trace  -t $< -e $(shell dirname $<)/system.elf -i mem --memory-type register
+	${FAIL_IMPORT} -v ${ARCH}/$(patsubst import-arch-%,%,$@) -b regs -t $< -e $(shell dirname $<)/system.elf -i regs 
+	${FAIL_IMPORT} -v ${ARCH}/$(patsubst import-arch-%,%,$@) -b ip   -t $< -e $(shell dirname $<)/system.elf -i regs --no-gp --ip
+	${FAIL_PRUNE}  -v ${ARCH}/$(patsubst import-arch-%,%,$@) -b %% --overwrite
 
 define arch-make-targets
 build-$1: ${BUILD_DIR}/$1/system.elf
