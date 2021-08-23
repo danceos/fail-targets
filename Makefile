@@ -15,7 +15,7 @@ BOCHS_RUNNER ?= ${FAIL_BIN}/bochs-experiment-runner
 
 EXPERIMENTS  := $(patsubst %.c,%,$(shell echo *.c))
 
-CFLAGS := -I. -include arch/${ARCH}/lib.c -O2 -std=c11
+CFLAGS += -I. -include arch/${ARCH}/lib.c -O2 -std=c11
 
 include arch/${ARCH}.mk
 

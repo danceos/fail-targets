@@ -12,10 +12,13 @@ MAIN() {
 	}
     MARKER(stop_trace);
 
+    POSIX_PRINTF("SUM: %d\n", sum);
+
 
 	if (sum != 1270)
-		MARKER(fail_marker);
+        MARKER(fail_marker);
     else
         MARKER(ok_marker);
+
 }
 

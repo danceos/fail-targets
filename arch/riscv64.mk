@@ -1,4 +1,5 @@
-FAIL_DOWNLOAD_URL = ${FAIL_DOWNLOAD_BASE}?job=build-riscv-generic-tools%3A+%5Briscv64%5D
+FAIL_DOWNLOAD_URL = ${FAIL_DOWNLOAD_BASE}?job=build-riscv-generic-tools%3A+%5Briscv64%2C+true%5D
+
 
 include arch/riscv-common.mk
 

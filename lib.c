@@ -6,19 +6,27 @@
 #define __QUOTE(x) #x
 #define QUOTE(x) __QUOTE(x)
 
+#ifndef MARKER
 #define MARKER(str) __asm__ volatile(QUOTE(str) ":"                      \
                                  : /* no inputs */                   \
                                  : /* no outputs */                  \
                                  : "memory", ARCH_ASM_CLOBBER_ALL    \
         )
-
-#ifndef DEBUG
-#define MAIN() void os_main(void)
-#define PRINT_DEBUG(...)
-#else
-#include <stdio.h>
-#define MARKER(str) printf(QUOTE(str) "\n")
-#define DEBUG 1
-#define PRINT_DEBUG(...) printf(__VA_ARGS__)
-#define MAIN() void main(int argc, char** argv)
 #endif
+
+#ifndef MAIN
+#define MAIN() void os_main(void)
+#endif
+
+#ifndef POSIX_PRINTF
+#define POSIX_PRINTF(...)
+#endif
+
+
+typedef __UINT8_TYPE__ uint8_t;
+typedef __UINT16_TYPE__ uint16_t;
+typedef __UINT32_TYPE__ uint32_t;
+
+typedef __INT8_TYPE__ int8_t;
+typedef __INT16_TYPE__ int16_t;
+typedef __INT32_TYPE__ int32_t;
