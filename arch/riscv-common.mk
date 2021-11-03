@@ -1,4 +1,5 @@
 CC      := clang-11
+OBJDUMP := llvm-objdump-11
 CFLAGS  += -nostdlib -fno-inline-functions -fno-unroll-loops -mcmodel=medium -gdwarf-5
 LDFLAGS += -nostdlib -nostartfiles -static -fuse-ld=lld  -Wl,-nostdlib -Wl,--script=arch/riscv/linker.ld
 
@@ -56,6 +57,7 @@ inject-%:
 
 
 import-arch-%: ${BUILD_DIR}/%/trace.pb ${HOME}/.my.cnf
+	${FAIL_IMPORT} -v ${ARCH}/$(patsubst import-arch-%,%,$@) -b regs-dfp  -t $< -e $(shell dirname $<)/system.elf -i objdump --objdump ${OBJDUMP}
 	${FAIL_IMPORT} -v ${ARCH}/$(patsubst import-arch-%,%,$@) -b mem  -t $< -e $(shell dirname $<)/system.elf -i mem --memory-type ram
 	${FAIL_IMPORT} -v ${ARCH}/$(patsubst import-arch-%,%,$@) -b regs-trace  -t $< -e $(shell dirname $<)/system.elf -i mem --memory-type register
 	${FAIL_IMPORT} -v ${ARCH}/$(patsubst import-arch-%,%,$@) -b regs -t $< -e $(shell dirname $<)/system.elf -i regs 
